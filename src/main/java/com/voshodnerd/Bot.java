@@ -9,7 +9,9 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.ApiContext;
 import org.telegram.telegrambots.ApiContextInitializer;
 import org.telegram.telegrambots.TelegramBotsApi;
+import org.telegram.telegrambots.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.api.methods.send.SendMessage;
+import org.telegram.telegrambots.api.objects.CallbackQuery;
 import org.telegram.telegrambots.api.objects.Message;
 import org.telegram.telegrambots.api.objects.Update;
 import org.telegram.telegrambots.api.objects.replykeyboard.InlineKeyboardMarkup;
@@ -26,6 +28,7 @@ import javax.annotation.PostConstruct;
 import java.io.InvalidObjectException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 
@@ -49,96 +52,129 @@ public class Bot extends TelegramLongPollingBot {
     public void onUpdateReceived(Update update) {
         try {
             Message message = update.getMessage();
-            if (message != null && message.hasText()) {
+            if (message!=null && message.hasText()) {
                 try {
                     handleIncomingMessage(message,update);
                 } catch (InvalidObjectException e) {
                     BotLogger.severe(LOGTAG, e);
                 }
+            } else if (update.hasCallbackQuery()) {
+              handleCallBachQuery(update,update.getCallbackQuery());
             }
         } catch (Exception e) {
             BotLogger.error(LOGTAG, e);
         }
+    }
 
+    private  void  handleCallBachQuery(Update update,CallbackQuery callBack) {
 
-        // We check if the update has a message and the message has text
-       /* if (update.hasMessage() && update.getMessage().hasText()) {
-            String message_text = update.getMessage().getText();
-            long chat_id = update.getMessage().getChatId();
-            if (update.getMessage().getText().equals("/start")) {
+        CallbackQuery callbackquery = update.getCallbackQuery();
+        String[] data = callbackquery.getData().split(":");
 
-
-                SendMessage message = new SendMessage() // Create a message object object
-                        .setChatId(chat_id)
-                        .setText("You send /start");
-                InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
-                List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
-                List<InlineKeyboardButton> rowInline = new ArrayList<>();
-                rowInline.add(new InlineKeyboardButton().setText("Update message text").setCallbackData("update_msg_text"));
-                // Set the keyboard to the markup
-                rowsInline.add(rowInline);
-                // Add it to the message
-                markupInline.setKeyboard(rowsInline);
-                message.setReplyMarkup(markupInline);
-                try {
-                    execute(message); // Sending our message object to user
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
-            } else {
-
+        switch (data[0]) {
+            case "type": {
+                showAllGoodsByType(data[1],callBack);
+                break;
+            }
+            case "good": {
+                showAllInformationAboutGood(callBack,data[1]);
+                break;}
+            default: {
+                showMessageError(update);
+                break;
             }
 
-        } else if (update.hasCallbackQuery()) {}
+        }
+    }
 
-        // We check if the update has a message and the message has text
-       /* if (update.hasMessage() && update.getMessage().hasText()) {
-            SendMessage message = new SendMessage() // Create a SendMessage object with mandatory fields
-                    .setChatId(update.getMessage().getChatId())
-                    .setText(update.getMessage().getText());
+    public void showMessageError(Update update) {
+        String messageText="Упс чтото пошло не так. Сорян(";
+        String message_text = update.getMessage().getText();
+        long chat_id = update.getMessage().getChatId();
+
+        SendMessage message = new SendMessage()// Create a message object object
+                .setChatId(chat_id)
+                .setText(messageText);
+        try {
+            execute(message); // Sending our message object to user
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+
+    public void   showAllInformationAboutGood(CallbackQuery callback,String idGood) {
+        Optional<Goods>  el= rep.findById(Long.parseLong(idGood));
+        if (el.isPresent()) {
+            Goods good=el.get();
+            String messageText="Подробная информация о товаре \n"+good.getName()+" \nЦена "+good.getPrice()+" \nКоличество на скаладе "+good.getCounts()+
+                    " \nКраткое описание товара \n"+good.getDescription();
+            long chat_id = callback.getMessage().getChatId();
+            SendMessage message = new SendMessage()// Create a message object object
+                    .setChatId(chat_id)
+                    .setText(messageText);
             try {
-                execute(message); // Call method to send the message
+                execute(message); // Sending our message object to user
             } catch (TelegramApiException e) {
                 e.printStackTrace();
             }
         }
-        */
     }
 
+    private void showAllGoodsByType(String type,CallbackQuery callback) {
+
+        SendMessage message = new SendMessage()// Create a message object object
+                .setChatId(callback.getMessage().getChatId().toString())
+                .setText("Список товаров по типу "+type);
+        InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
+        List<Goods> listGoodByType= rep.findByType(type);
+        for (Goods good:listGoodByType) {
+            List<InlineKeyboardButton> rowInline = new ArrayList<>();
+            rowInline.add(new InlineKeyboardButton().setText(good.getName()).setCallbackData("good:"+good.getId().toString()));
+            // Set the keyboard to the markup
+            rowsInline.add(rowInline);
+        }
+        // Add it to the message
+        markupInline.setKeyboard(rowsInline);
+        message.setReplyMarkup(markupInline);
+
+        try {
+            execute(message); // Sending our message object to user
+        } catch (TelegramApiException e) { e.printStackTrace();
+        }
+
+    }
+
+
+
+
     private void handleIncomingMessage(Message message,Update update) throws InvalidObjectException {
-
-
             switch (message.getText()) {
                 case "/start":
                     sendMsg(message, "Это команда старт!");
-                    //System.out.println(message.getText());
+
                     break;
                 case "Список всех товаров":
                     setInlineListAllGoods(update);
-                   //  sendMsg(message, "Список всех товаров");
-                    //System.out.println(message.getText());
+
                     break;
                 case "Типы товаров":
-                    //sendMsg(message, "Типы товаров");
+
                     setInline(update);
-                  //  System.out.println(message.getText());
+
                     break;
                 case "О магазине":
-                    sendMsg(message, "Наш магазин Alser привествует вас. У нас широкий выбор электроники");
-                    //setInline(update);
+                    sendMsg(message, "Наш магазин 'Mr. Gadget' привествует вас. У нас широкий выбор электроники");
 
                      System.out.println(message.getText());
                     break;
                 default:
-                    sendMsg(message, "О магазине");
-                    //System.out.println(message.getText());
+
+                    showMessageError(update);
                     break;
             }
-
-
-
-
-
     }
 
     public  void setInlineListAllGoods(Update update) {
@@ -152,7 +188,7 @@ public class Bot extends TelegramLongPollingBot {
         List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
         for (Goods good:list) {
             List<InlineKeyboardButton> rowInline = new ArrayList<>();
-            rowInline.add(new InlineKeyboardButton().setText(good.getName()).setCallbackData(good.getId().toString()));
+            rowInline.add(new InlineKeyboardButton().setText(good.getName()).setCallbackData("good:"+good.getId().toString()));
             // Set the keyboard to the markup
             rowsInline.add(rowInline);
         }
@@ -177,7 +213,7 @@ public class Bot extends TelegramLongPollingBot {
             List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
             for (String type:list) {
                 List<InlineKeyboardButton> rowInline = new ArrayList<>();
-                rowInline.add(new InlineKeyboardButton().setText(type).setCallbackData(type));
+                rowInline.add(new InlineKeyboardButton().setText(type).setCallbackData("type:"+type));
                 // Set the keyboard to the markup
                 rowsInline.add(rowInline);
             }
@@ -189,8 +225,6 @@ public class Bot extends TelegramLongPollingBot {
             } catch (TelegramApiException e) {
                 e.printStackTrace();
             }
-
-
     }
 
 
@@ -248,14 +282,13 @@ public class Bot extends TelegramLongPollingBot {
         // Return bot username
         // If bot username is @MyAmazingBot, it must return 'MyAmazingBot'
         return BOT_USERNAME;
-       // return "VoshodNerdBot";
+
     }
 
     @Override
     public String getBotToken() {
         // Return bot token from BotFather
         return TOKEN;
-        //return "583709432:AAEW7A1xYf9MKhJ5XBiQjzgTMUbHbUfBKKg";
     }
 
 
