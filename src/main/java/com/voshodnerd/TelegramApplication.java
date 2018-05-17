@@ -15,8 +15,8 @@ import org.telegram.telegrambots.bots.DefaultBotOptions;
 @SpringBootApplication
 public class TelegramApplication {
 
-@Autowired
-Bot bot;
+  @Autowired
+  Bot bot;
 
 
 

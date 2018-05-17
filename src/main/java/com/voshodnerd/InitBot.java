@@ -16,13 +16,15 @@ public class InitBot {
 
     private static String PROXY_HOST = "153.149.168.40" /* proxy host */;
     private static Integer PROXY_PORT = 3128 /* proxy port */;
+    private  static String TOKEN="583709432:AAEW7A1xYf9MKhJ5XBiQjzgTMUbHbUfBKKg";
+    private static  String BOT_USERNAME="VoshodNerdBot";
 
     @Autowired
     GoodsRepository repository;
 
 
     @Bean
-  public  Bot  GetBot() {
+  public  Bot  GetBotBean() {
       Bot bot=null;
       try {
           ApiContextInitializer.init();
@@ -35,9 +37,7 @@ public class InitBot {
           botOptions.setRequestConfig(requestConfig);
           botOptions.setHttpProxy(httpHost);
           // Register your newly created AbilityBot
-           bot = new Bot(botOptions);
-
-
+           bot = new Bot(BOT_USERNAME,TOKEN,botOptions);
           botsApi.registerBot(bot);
           bot.setGoodsRepository(repository);
 

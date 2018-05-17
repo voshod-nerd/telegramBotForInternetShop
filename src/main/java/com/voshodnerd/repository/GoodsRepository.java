@@ -11,4 +11,13 @@ public interface GoodsRepository extends JpaRepository<Goods, Long> {
 
     @Query(value = "SELECT * FROM tbl_goods ", nativeQuery = true)
     public List<Goods> findAllGoods();
-}
+
+    @Query(value = "SELECT * FROM tbl_goods where type=:type", nativeQuery = true)
+    public List<Goods> findByType(String type);
+
+    @Query(value = "SELECT DISTINCT type FROM tbl_goods ", nativeQuery = true)
+    public List<String> findTypes();
+
+
+
+ }
